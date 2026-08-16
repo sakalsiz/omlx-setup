@@ -23,10 +23,12 @@
         // (localhost). If you keep verification on: `opencode auth login`.
         // Stall handling: a rare generation can open a stream and produce no
         // tokens. These timeouts convert that infinite freeze into a bounded,
-        // resendable error. headerTimeout stays generous for cold prefills.
-        "timeout": 120000,        // full-request backstop
-        "headerTimeout": 60000,   // wait for first response header
-        "chunkTimeout": 25000     // abort if no SSE chunk for 25s
+        // resendable error. Sized for the dense 27B (~9 tok/s: a full 2048-tok
+        // response takes ~215s, and memory-guard-throttled prefills can stall
+        // chunks for 60s+) — the MoE default never gets near these.
+        "timeout": 300000,        // full-request backstop
+        "headerTimeout": 120000,  // wait for first response header (cold load + prefill start)
+        "chunkTimeout": 90000     // abort if no SSE chunk for 90s
       },
       // oMLX auto-discovers models from its model_dirs and exposes the
       // case-sensitive folder names as IDs — verify yours with:
