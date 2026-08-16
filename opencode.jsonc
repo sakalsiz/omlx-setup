@@ -1,0 +1,61 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // NOTE: `limit.context` / `limit.output` are OpenCode-side metadata used for
+  // token budgeting and auto-compaction. They do NOT change what the server
+  // allows — keep them matched to oMLX's sampling.max_context_window.
+  // Default model: a ~18 GB MoE 4-bit quant — fits resident in 64 GB next to
+  // desktop apps, fast (few active params/token), real tool-calling.
+  "model": "omlx/Qwen3.6-35B-A3B-OptiQ-4bit",
+  // Lower-entropy sampling for agentic/tool use: fewer degenerate draws =
+  // far lower chance of a non-terminating "runaway" generation. Applied to
+  // the interactive agents (build = default TUI agent, plan = plan mode).
+  "agent": {
+    "build": { "temperature": 0.2, "top_p": 0.9 },
+    "plan": { "temperature": 0.2, "top_p": 0.9 }
+  },
+  "provider": {
+    "omlx": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "oMLX",
+      "options": {
+        "baseURL": "http://127.0.0.1:8000/v1",
+        // No API key needed when oMLX runs with skip_api_key_verification
+        // (localhost). If you keep verification on: `opencode auth login`.
+        // Stall handling: a rare generation can open a stream and produce no
+        // tokens. These timeouts convert that infinite freeze into a bounded,
+        // resendable error. headerTimeout stays generous for cold prefills.
+        "timeout": 120000,        // full-request backstop
+        "headerTimeout": 60000,   // wait for first response header
+        "chunkTimeout": 25000     // abort if no SSE chunk for 25s
+      },
+      // oMLX auto-discovers models from its model_dirs and exposes the
+      // case-sensitive folder names as IDs — verify yours with:
+      //   curl http://127.0.0.1:8000/v1/models
+      // Shared rationale: context 32768 (matches oMLX max_context_window);
+      // output/max_tokens 2048 (bounds runaway generations); temperature 0.2
+      // in model `options` because OpenCode drops agent-level temperature for
+      // openai-compatible providers (verified on the wire); tool_call
+      // advertises function-calling to OpenCode.
+      "models": {
+        // DEFAULT: MoE 4-bit — fits resident, fast, real tool use.
+        "Qwen3.6-35B-A3B-OptiQ-4bit": {
+          "name": "Qwen3.6 35B A3B optiq-4bit (fits + fast — default)",
+          "tool_call": true,
+          "limit": { "context": 32768, "output": 2048 },
+          "options": { "max_tokens": 2048, "temperature": 0.2 }
+        },
+        // Dense 8-bit 27B — higher quality, slower per token. Thinking is ON
+        // by default in its chat template and think-blocks persist in history
+        // (growing prefills) — workable thanks to oMLX's SSD prefix cache.
+        // Only one big model fits under the memory guard at a time: unload
+        // the other first (POST /admin/api/models/<id>/unload).
+        "Qwen3.8-27B-MXFP8": {
+          "name": "Qwen3.8 27B MXFP8 (dense 8-bit — second opinion)",
+          "tool_call": true,
+          "limit": { "context": 32768, "output": 2048 },
+          "options": { "max_tokens": 2048, "temperature": 0.2 }
+        }
+      }
+    }
+  }
+}
