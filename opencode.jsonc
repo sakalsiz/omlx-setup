@@ -69,10 +69,11 @@
         "Qwen3.8-27B-oQ6e-MTP": {
           "name": "Qwen3.8 27B oQ6e MTP (dense + spec-decode — second opinion)",
           "tool_call": true,
-          // Native 262144: hybrid attention has 16/64 full-attn layers and
-          // costs ~64 KB/token (~16 GB at 262k). This fits with its ~22 GB
-          // weights when it is the only large model resident.
-          "limit": { "context": 262144, "output": 2048 },
+          // Native context is 262k, but the measured operational ceiling on
+          // this 64 GB Mac is lower: a 131k benchmark hit the 58 GB Metal
+          // guard at 104448 tokens. 98304 leaves one full 6k-token safety
+          // margin so OpenCode compacts before oMLX rejects the prefill.
+          "limit": { "context": 98304, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
         // Dense 31B general/vision model, oQ4e with native MTP (~19 GB on
