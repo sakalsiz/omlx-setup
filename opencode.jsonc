@@ -82,10 +82,11 @@
         "gemma-4-31B-oQ4e-MTP": {
           "name": "Gemma 4 31B oQ4e MTP (dense general + vision)",
           "tool_call": true,
-          // Native context is 262k, but ten wide full-attention layers cost
-          // ~160 KB/token. 131k uses ~20 GB of KV beside ~24 GB loaded model
-          // memory; 262k would exceed this Mac's 51.84 GB Metal ceiling.
-          "limit": { "context": 131072, "output": 2048 },
+          // Native context is 262k, but ten wide full-attention layers make
+          // long prefill expensive. 65k passed after freeing desktop memory;
+          // 131k would exceed the 58 GB Metal safety ceiling. Keep OpenCode
+          // at the measured operational limit so it compacts before failure.
+          "limit": { "context": 65536, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
         // Compact dense E4B general/vision model, oQ4e with four native MTP
