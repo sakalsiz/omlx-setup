@@ -66,7 +66,7 @@ is expected and safer than forcing the machine into swap pressure.
 | `temperature` | **0.2** | low entropy → fewer runaway/degenerate generations. **Set in the model `options`, NOT the agent** — OpenCode drops agent-level temperature for openai-compatible providers (verified on the wire). |
 | `top_p` | 0.9 | same |
 | `max_tokens` (+ `limit.output`) | **2048** | bounds a runaway generation |
-| `limit.context` | **131072 / 65536 / 32768 / 131072** | per-model client budgets for Qwen3.6, Qwen3.8, Gemma 31B, and Gemma E4B respectively |
+| `limit.context` | **262144 / 262144 / 131072 / 131072** | per-model client budgets for Qwen3.6, Qwen3.8, Gemma 31B, and Gemma E4B respectively; all are native maxima except Gemma 31B, whose full 262k KV cache cannot fit under the 51.84 GB Metal ceiling |
 | `timeout` / `headerTimeout` / `chunkTimeout` | **300000 / 120000 / 90000** | a stalled stream becomes a resendable error instead of an infinite TUI freeze; still allows cold loads and dense-model prefills |
 
 ## Gotchas

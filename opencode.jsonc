@@ -48,13 +48,13 @@
         "Qwen3.6-35B-A3B-oQ4e-MTP": {
           "name": "Qwen3.6 35B A3B oQ4e MTP (fits + fastest — default)",
           "tool_call": true,
-          // 131072: hybrid attention (10/40 full-attn layers) makes long KV
-          // cheap (~20 KB/token → 2.6 GB at 131k). Server-side per-model
-          // max_context_window raised to match (global 32k no longer caps it).
+          // Native 262144: hybrid attention (10/40 full-attn layers) makes
+          // long KV cheap (~20 KB/token → ~5 GB at 262k). The server-side
+          // per-model max_context_window matches this native ceiling.
           // Caveat: a FRESH prefill >~40k tokens can trip the prefill memory
           // guard under desktop load — incremental agentic growth is fine
           // because prefix-cached turns only prefill the new tail.
-          "limit": { "context": 131072, "output": 2048 },
+          "limit": { "context": 262144, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
         // Dense 27B, oQ6e 6-bit mixed with native MTP head (~22 GB). On oMLX
@@ -69,10 +69,10 @@
         "Qwen3.8-27B-oQ6e-MTP": {
           "name": "Qwen3.8 27B oQ6e MTP (dense + spec-decode — second opinion)",
           "tool_call": true,
-          // 65536: also hybrid (16/64 full-attn) but 3x the KV cost per token
-          // (~64 KB → 4.2 GB at 65k). Kept lower than the driver since second
-          // opinions are focused reviews, and its weights are already 22 GB.
-          "limit": { "context": 65536, "output": 2048 },
+          // Native 262144: hybrid attention has 16/64 full-attn layers and
+          // costs ~64 KB/token (~16 GB at 262k). This fits with its ~22 GB
+          // weights when it is the only large model resident.
+          "limit": { "context": 262144, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
         // Dense 31B general/vision model, oQ4e with native MTP (~19 GB on
@@ -81,9 +81,10 @@
         "gemma-4-31B-oQ4e-MTP": {
           "name": "Gemma 4 31B oQ4e MTP (dense general + vision)",
           "tool_call": true,
-          // Ten full-attention layers make long KV substantially costlier
-          // than Qwen3.6; 32k leaves room for image embeddings and desktop RAM.
-          "limit": { "context": 32768, "output": 2048 },
+          // Native context is 262k, but ten wide full-attention layers cost
+          // ~160 KB/token. 131k uses ~20 GB of KV beside ~24 GB loaded model
+          // memory; 262k would exceed this Mac's 51.84 GB Metal ceiling.
+          "limit": { "context": 131072, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
         // Compact dense E4B general/vision model, oQ4e with four native MTP
