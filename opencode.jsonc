@@ -41,8 +41,8 @@
       //   curl http://127.0.0.1:8000/v1/models
       // Shared rationale: OpenCode context limits are latency-oriented comfort
       // caps below oMLX's per-model max_context_window safety ceilings; see
-      // the benchmark evidence in omlx-opencode-setup.md. The server setting
-      // still overrides oMLX's 32k global fallback;
+      // docs/benchmarks/2026-08-30-context.md. The server setting still
+      // overrides oMLX's 32k global fallback;
       // output/max_tokens 2048 (bounds runaway generations); temperature 0.2
       // in model `options` because OpenCode drops agent-level temperature for
       // openai-compatible providers (verified on the wire); tool_call
