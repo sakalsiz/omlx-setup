@@ -63,6 +63,7 @@ is expected and safer than forcing the machine into swap pressure.
 | Setting | Value | Why |
 |---|---|---|
 | default model | `Qwen3.6-35B-A3B-oQ4e-MTP` | fast MoE + native MTP + reliable tool use |
+| small model | `gemma-4-E4B-it-oQ4e-mtp` | routes lightweight OpenCode work such as title generation to the ~5.2 GB, ~89 tok/s model |
 | `temperature` | **0.2** | low entropy → fewer runaway/degenerate generations. **Set in the model `options`, NOT the agent** — OpenCode drops agent-level temperature for openai-compatible providers (verified on the wire). |
 | `top_p` | 0.9 | same |
 | `max_tokens` (+ `limit.output`) | **2048** | bounds a runaway generation |

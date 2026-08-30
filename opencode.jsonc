@@ -6,6 +6,9 @@
   // Default model: a ~18 GB MoE 4-bit quant — fits resident in 64 GB next to
   // desktop apps, fast (few active params/token), real tool-calling.
   "model": "omlx/Qwen3.6-35B-A3B-oQ4e-MTP",
+  // Route lightweight background work (for example title generation) to the
+  // compact ~5.2 GB model instead of waking the main coding model.
+  "small_model": "omlx/gemma-4-E4B-it-oQ4e-mtp",
   // Lower-entropy sampling for agentic/tool use: fewer degenerate draws =
   // far lower chance of a non-terminating "runaway" generation. Applied to
   // the interactive agents (build = default TUI agent, plan = plan mode).
