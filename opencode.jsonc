@@ -1,14 +1,18 @@
 {
   "$schema": "https://opencode.ai/config.json",
   // NOTE: `limit.context` / `limit.output` are OpenCode-side metadata used for
-  // token budgeting and auto-compaction. They do NOT change what the server
-  // allows — keep them matched to oMLX's sampling.max_context_window.
+  // token budgeting and auto-compaction. They do NOT change what oMLX allows.
+  // These context values are deliberately lower than the server hard ceilings
+  // to prevent multi-minute fresh-prefill waits during normal coding.
   // Default model: a ~18 GB MoE 4-bit quant — fits resident in 64 GB next to
   // desktop apps, fast (few active params/token), real tool-calling.
   "model": "omlx/Qwen3.6-35B-A3B-oQ4e-MTP",
   // Route lightweight background work (for example title generation) to the
   // compact ~5.2 GB model instead of waking the main coding model.
   "small_model": "omlx/gemma-4-E4B-it-oQ4e-mtp",
+  // Compact before the comfort limit is exhausted and discard stale bulky
+  // tool output while preserving the durable session history.
+  "compaction": { "auto": true, "prune": true, "reserved": 8192 },
   // Lower-entropy sampling for agentic/tool use: fewer degenerate draws =
   // far lower chance of a non-terminating "runaway" generation. Applied to
   // the interactive agents (build = default TUI agent, plan = plan mode).
@@ -51,13 +55,11 @@
         "Qwen3.6-35B-A3B-oQ4e-MTP": {
           "name": "Qwen3.6 35B A3B oQ4e MTP (fits + fastest — default)",
           "tool_call": true,
-          // Native 262144: hybrid attention (10/40 full-attn layers) makes
-          // long KV cheap (~20 KB/token → ~5 GB at 262k). The server-side
-          // per-model max_context_window matches this native ceiling.
-          // Caveat: a FRESH prefill >~40k tokens can trip the prefill memory
-          // guard under desktop load — incremental agentic growth is fine
-          // because prefix-cached turns only prefill the new tail.
-          "limit": { "context": 262144, "output": 2048 },
+          // oMLX retains the native 262144 hard ceiling, but a 200k fresh
+          // prefill took about seven minutes. The 65k OpenCode comfort cap
+          // keeps a cold prefill near 53 seconds; cached incremental turns
+          // normally process only the new tail.
+          "limit": { "context": 65536, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
         // Dense 27B, oQ6e 6-bit mixed with native MTP head (~22 GB). On oMLX
@@ -72,11 +74,10 @@
         "Qwen3.8-27B-oQ6e-MTP": {
           "name": "Qwen3.8 27B oQ6e MTP (dense + spec-decode — second opinion)",
           "tool_call": true,
-          // Native context is 262k, but the measured operational ceiling on
-          // this 64 GB Mac is lower: a 131k benchmark hit the 58 GB Metal
-          // guard at 104448 tokens. 98304 leaves one full 6k-token safety
-          // margin so OpenCode compacts before oMLX rejects the prefill.
-          "limit": { "context": 98304, "output": 2048 },
+          // oMLX retains its measured 98304 hard ceiling. A 65k fresh prefill
+          // took nearly four minutes, while 32k took about 90 seconds, so
+          // OpenCode compacts at the smaller daily-use comfort limit.
+          "limit": { "context": 32768, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
         // Dense 31B general/vision model, oQ4e with native MTP (~19 GB on
@@ -85,11 +86,10 @@
         "gemma-4-31B-oQ4e-MTP": {
           "name": "Gemma 4 31B oQ4e MTP (dense general + vision)",
           "tool_call": true,
-          // Native context is 262k, but ten wide full-attention layers make
-          // long prefill expensive. 65k passed after freeing desktop memory;
-          // 131k would exceed the 58 GB Metal safety ceiling. Keep OpenCode
-          // at the measured operational limit so it compacts before failure.
-          "limit": { "context": 65536, "output": 2048 },
+          // oMLX retains its measured 65536 hard ceiling, but a 65k fresh
+          // prefill took about 4.4 minutes. The 32k OpenCode comfort cap keeps
+          // the corresponding cold wait near 108 seconds.
+          "limit": { "context": 32768, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
         // Compact dense E4B general/vision model, oQ4e with four native MTP
@@ -98,7 +98,10 @@
         "gemma-4-E4B-it-oQ4e-mtp": {
           "name": "Gemma 4 E4B oQ4e MTP (small + fast + vision)",
           "tool_call": true,
-          "limit": { "context": 131072, "output": 2048 },
+          // oMLX retains the native 131072 ceiling. At 65k this model's cold
+          // prefill is still comfortable at about 25 seconds, versus 67
+          // seconds at the native maximum.
+          "limit": { "context": 65536, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         }
       }
