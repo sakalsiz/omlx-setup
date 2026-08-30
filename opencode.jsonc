@@ -23,9 +23,8 @@
         // (localhost). If you keep verification on: `opencode auth login`.
         // Stall handling: a rare generation can open a stream and produce no
         // tokens. These timeouts convert that infinite freeze into a bounded,
-        // resendable error. Originally sized for the 8-bit dense 27B (~9 tok/s);
-        // the DWQ 4.5bit replacement runs ~16 tok/s (2048 tok ≈ 130s), so these
-        // now have comfortable margin — kept as a true-stall backstop.
+        // resendable error. The slowest retained model decodes at ~21–28 tok/s,
+        // so these have comfortable margin and remain a true-stall backstop.
         "timeout": 300000,        // full-request backstop
         "headerTimeout": 120000,  // wait for first response header (cold load + prefill start)
         "chunkTimeout": 90000     // abort if no SSE chunk for 90s
@@ -74,6 +73,26 @@
           // (~64 KB → 4.2 GB at 65k). Kept lower than the driver since second
           // opinions are focused reviews, and its weights are already 22 GB.
           "limit": { "context": 65536, "output": 2048 },
+          "options": { "max_tokens": 2048, "temperature": 0.2 }
+        },
+        // Dense 31B general/vision model, oQ4e with native MTP (~19 GB on
+        // disk, ~21–27 tok/s). Stronger instruction following than the
+        // retired 24B LFM and a useful non-Qwen second opinion.
+        "gemma-4-31B-oQ4e-MTP": {
+          "name": "Gemma 4 31B oQ4e MTP (dense general + vision)",
+          "tool_call": true,
+          // Ten full-attention layers make long KV substantially costlier
+          // than Qwen3.6; 32k leaves room for image embeddings and desktop RAM.
+          "limit": { "context": 32768, "output": 2048 },
+          "options": { "max_tokens": 2048, "temperature": 0.2 }
+        },
+        // Compact dense E4B general/vision model, oQ4e with four native MTP
+        // heads (~5.2 GB, ~89 tok/s). Replaces LFM2.5 as the lightweight slot:
+        // smaller, aligned, multimodal, and reliable at native tool calls.
+        "gemma-4-E4B-it-oQ4e-mtp": {
+          "name": "Gemma 4 E4B oQ4e MTP (small + fast + vision)",
+          "tool_call": true,
+          "limit": { "context": 131072, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         }
       }

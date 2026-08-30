@@ -30,20 +30,26 @@ oMLX auto-discovers MLX-format models from the folders in
 `model.model_dirs` (e.g. `~/MLXModels`, two-level `org/model-name/` layout).
 Model IDs are the **case-sensitive folder names**.
 
-On 64 GB, this combination works well:
-- **Daily driver: `Qwen3.6-35B-A3B-OptiQ-4bit`** (~18 GB) — MoE (only ~3B
-  active per token → fast), strong tool-calling. Measured here: cold load
-  3.4 s, ~38 tok/s decode.
-- **Second opinion: `Qwen3.8-27B-MXFP8`** (~27 GB, dense 8-bit) — higher
-  quality, slower per token. Its chat template defaults thinking ON at high
-  effort *and* preserves `<think>` blocks in conversation history, so prompts
-  snowball across turns — fine under oMLX because the SSD prefix cache
-  absorbs the re-prefill, painful on servers without prefix caching.
-- General/vision models (LFM2, Gemma) load fine but are weak at proactive
-  tool use — poor as autonomous coding agents.
+The current 64 GB lineup uses oMLX-native Jundot oQ quants throughout:
 
-Rule of thumb: only one big model fits under the memory guard at a time next
-to normal desktop apps. Unload before switching (see Gotchas).
+- **Daily driver: `Qwen3.6-35B-A3B-oQ4e-MTP`** (~20 GB) — fast MoE with
+  strong tool-calling. Lightning MTP measured 85.8 tok/s, versus 70.8 without
+  MTP, at 85% draft acceptance.
+- **Coding second opinion: `Qwen3.8-27B-oQ6e-MTP`** (~22 GB) — dense 6-bit
+  mixed quant at near-8-bit quality. Lightning MTP measures about 27.6 tok/s.
+  Its chat template defaults thinking ON and preserves think blocks in
+  history; the SSD prefix cache keeps repeated turns practical.
+- **General/vision: `gemma-4-31B-oQ4e-MTP`** (~19 GB) — dense, multimodal,
+  and roughly 21–27 tok/s with MTP. It replaced the 26B-A4B Gemma and the
+  24B-A2B LFM: materially better instruction following at a smaller footprint.
+- **Small/fast/vision: `gemma-4-E4B-it-oQ4e-mtp`** (~5.2 GB) — compact dense
+  multimodal model with four MTP heads, measured around 89 tok/s. It replaced
+  the 8B-A1B LFM despite that model's ~120 tok/s decode because the LFM leaked
+  meta-reasoning and repeatedly ignored exact-output instructions.
+
+The two Qwen models total about 42 GB and can co-reside when desktop memory
+pressure is low. oMLX may still evict one under its dynamic soft ceiling; that
+is expected and safer than forcing the machine into swap pressure.
 
 ## OpenCode setup
 1. Put `opencode.jsonc` from this repo at `~/.config/opencode/opencode.jsonc`.
@@ -56,12 +62,12 @@ to normal desktop apps. Unload before switching (see Gotchas).
 ## The tuned parameters (and why)
 | Setting | Value | Why |
 |---|---|---|
-| default model | `Qwen3.6-35B-A3B-OptiQ-4bit` | fits resident + fast + real tool use |
+| default model | `Qwen3.6-35B-A3B-oQ4e-MTP` | fast MoE + native MTP + reliable tool use |
 | `temperature` | **0.2** | low entropy → fewer runaway/degenerate generations. **Set in the model `options`, NOT the agent** — OpenCode drops agent-level temperature for openai-compatible providers (verified on the wire). |
 | `top_p` | 0.9 | same |
 | `max_tokens` (+ `limit.output`) | **2048** | bounds a runaway generation |
-| `limit.context` | **32768** | matches oMLX `sampling.max_context_window` |
-| `timeout` / `headerTimeout` / `chunkTimeout` | **120000 / 60000 / 25000** | a stalled stream becomes a resendable error instead of an infinite TUI freeze; headerTimeout stays generous for cold multi-k-token prefills |
+| `limit.context` | **131072 / 65536 / 32768 / 131072** | per-model client budgets for Qwen3.6, Qwen3.8, Gemma 31B, and Gemma E4B respectively |
+| `timeout` / `headerTimeout` / `chunkTimeout` | **300000 / 120000 / 90000** | a stalled stream becomes a resendable error instead of an infinite TUI freeze; still allows cold loads and dense-model prefills |
 
 ## Gotchas
 - **The UI's "disable API key" toggle may not persist.** If the server keeps
@@ -79,8 +85,7 @@ to normal desktop apps. Unload before switching (see Gotchas).
   (≤ ~55 GB on 64 GB), and note it resets on reboot.
 - The port in `settings.json` is authoritative (default 8000). A stray second
   listener on another port means a leftover server instance — restart the app.
-- Quantized repacks from third-party HF orgs may bundle engine-specific
-  sidecar files (MTP/speculative-decoding tuning, serving presets). oMLX
-  ignores them — behavior comes from the standard `config.json`,
-  `generation_config.json`, and chat template. Don't expect speculative-
-  decoding speedups advertised for other engines to apply.
+- Native MTP is persisted per model. Enable it once with
+  `PUT /admin/api/models/<id>/settings` and
+  `{"mtp_enabled":true,"mtp_num_draft_tokens":4}`; verify the log says
+  `Lightning MTP` rather than assuming a checkpoint name activates it.
