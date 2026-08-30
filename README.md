@@ -5,8 +5,9 @@ A working, tuned setup for **local agentic coding on Apple Silicon**:
 inference server.
 
 - [`omlx-opencode-setup.md`](omlx-opencode-setup.md) — the guide: component
-  overview, model choices for 64 GB, tuned parameters with rationale, and
-  gotchas (auth toggle, memory guard, kernel Metal cap).
+  overview, model choices for 64 GB, reproducible context benchmark evidence,
+  decision points, tuned parameters with rationale, and gotchas (auth toggle,
+  memory guard, kernel Metal cap).
 - [`opencode.jsonc`](opencode.jsonc) — drop-in OpenCode config
   (`~/.config/opencode/opencode.jsonc`) with the oMLX provider and tuned
   per-model settings.
