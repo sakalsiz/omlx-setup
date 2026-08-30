@@ -33,7 +33,8 @@
       // oMLX auto-discovers models from its model_dirs and exposes the
       // case-sensitive folder names as IDs — verify yours with:
       //   curl http://127.0.0.1:8000/v1/models
-      // Shared rationale: context 32768 (matches oMLX max_context_window);
+      // Shared rationale: per-model context limits match the per-model
+      // max_context_window set via oMLX admin API (overrides the 32k global);
       // output/max_tokens 2048 (bounds runaway generations); temperature 0.2
       // in model `options` because OpenCode drops agent-level temperature for
       // openai-compatible providers (verified on the wire); tool_call
@@ -48,7 +49,13 @@
         "Qwen3.6-35B-A3B-oQ4e-MTP": {
           "name": "Qwen3.6 35B A3B oQ4e MTP (fits + fastest — default)",
           "tool_call": true,
-          "limit": { "context": 32768, "output": 2048 },
+          // 131072: hybrid attention (10/40 full-attn layers) makes long KV
+          // cheap (~20 KB/token → 2.6 GB at 131k). Server-side per-model
+          // max_context_window raised to match (global 32k no longer caps it).
+          // Caveat: a FRESH prefill >~40k tokens can trip the prefill memory
+          // guard under desktop load — incremental agentic growth is fine
+          // because prefix-cached turns only prefill the new tail.
+          "limit": { "context": 131072, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
         // Dense 27B, oQ6e 6-bit mixed with native MTP head (~22 GB). On oMLX
@@ -63,7 +70,10 @@
         "Qwen3.8-27B-oQ6e-MTP": {
           "name": "Qwen3.8 27B oQ6e MTP (dense + spec-decode — second opinion)",
           "tool_call": true,
-          "limit": { "context": 32768, "output": 2048 },
+          // 65536: also hybrid (16/64 full-attn) but 3x the KV cost per token
+          // (~64 KB → 4.2 GB at 65k). Kept lower than the driver since second
+          // opinions are focused reviews, and its weights are already 22 GB.
+          "limit": { "context": 65536, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         }
       }
