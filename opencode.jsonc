@@ -5,7 +5,7 @@
   // allows — keep them matched to oMLX's sampling.max_context_window.
   // Default model: a ~18 GB MoE 4-bit quant — fits resident in 64 GB next to
   // desktop apps, fast (few active params/token), real tool-calling.
-  "model": "omlx/Qwen3.6-35B-A3B-OptiQ-4bit",
+  "model": "omlx/Qwen3.6-35B-A3B-oQ4e-MTP",
   // Lower-entropy sampling for agentic/tool use: fewer degenerate draws =
   // far lower chance of a non-terminating "runaway" generation. Applied to
   // the interactive agents (build = default TUI agent, plan = plan mode).
@@ -39,21 +39,29 @@
       // openai-compatible providers (verified on the wire); tool_call
       // advertises function-calling to OpenCode.
       "models": {
-        // DEFAULT: MoE 4-bit — fits resident, fast, real tool use.
-        "Qwen3.6-35B-A3B-OptiQ-4bit": {
-          "name": "Qwen3.6 35B A3B optiq-4bit (fits + fast — default)",
+        // DEFAULT: MoE oQ4e (~20 GB, oMLX-native imatrix quant) with native
+        // MTP head — Lightning MTP measured 85.7 tok/s vs 70.8 off (85% draft
+        // acceptance, depth 4). Enable once per model:
+        //   PUT /admin/api/models/<id>/settings
+        //   {"mtp_enabled": true, "mtp_num_draft_tokens": 4}
+        // Replaced Qwen3.6-35B-A3B-OptiQ-4bit (67 tok/s, no MTP head).
+        "Qwen3.6-35B-A3B-oQ4e-MTP": {
+          "name": "Qwen3.6 35B A3B oQ4e MTP (fits + fastest — default)",
           "tool_call": true,
           "limit": { "context": 32768, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
         },
-        // Dense 27B, DWQ 4.5bpw (~16 GB) — replaced the 8-bit MXFP8 (27 GB,
-        // ~9 tok/s): ~16 tok/s and small enough to stay resident NEXT TO the
-        // MoE default (~34 GB total under the ~46.7 GB admission target), so
-        // no more unload dance. Thinking is ON by default in its chat template
-        // and think-blocks persist in history (growing prefills) — workable
-        // thanks to oMLX's SSD prefix cache.
-        "Qwen3.8-27B-DWQ-4.5bit": {
-          "name": "Qwen3.8 27B DWQ 4.5bit (dense — second opinion)",
+        // Dense 27B, oQ6e 6-bit mixed with native MTP head (~22 GB). On oMLX
+        // 0.6.4 the 6-bit path runs 27.6 tok/s with Lightning MTP — same speed
+        // as the 4-bit oQ4e it replaced (28.9), at near-8-bit quality — and
+        // co-resides with the MoE default (~43 GB, verified no eviction).
+        // Enable MTP per model via: PUT /admin/api/models/<id>/settings
+        //   {"mtp_enabled": true, "mtp_num_draft_tokens": 4}
+        // Thinking is ON by default in its chat template and think-blocks
+        // persist in history (growing prefills) — workable thanks to oMLX's
+        // SSD prefix cache + 0.6.4 warm-prefix MTP restoration.
+        "Qwen3.8-27B-oQ6e-MTP": {
+          "name": "Qwen3.8 27B oQ6e MTP (dense + spec-decode — second opinion)",
           "tool_call": true,
           "limit": { "context": 32768, "output": 2048 },
           "options": { "max_tokens": 2048, "temperature": 0.2 }
